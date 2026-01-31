@@ -193,17 +193,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.Status = fmt.Sprintf("LEVEL UP! Reached Level %d", int(lvl))
 						m.logDebug("LEVEL UP to %d", int(lvl))
 					}
-					m.Level = int(lvl)
-				}
-				if totalXP, ok := msg.stats["total_xp"].(float64); ok {
-					m.XP = int(totalXP)
-				}
-				if points, ok := msg.stats["points_added"].(float64); ok {
-					m.Points += int(points)
 				}
 			}
+			// Always sync stats after task
+			return m, tea.Batch(tick(), m.fetchUserStats())
 		}
-		return m, tick()
 
 	case searchResultMsg:
 		if msg.err != nil {

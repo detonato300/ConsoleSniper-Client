@@ -5,6 +5,7 @@ import (
 	"agent_client/internal/license"
 	"agent_client/internal/security"
 	"agent_client/internal/ui"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -12,12 +13,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const Version = "v3.4.3"
+const Version = "v3.4.5"
 const DevSecret = "DEVSNIPER2026"
 
 func main() {
-	security.PerformSecurityAudit()
-
 	// Parse flags for Debug mode
 	debugEnabled := false
 	for _, arg := range os.Args {
@@ -27,6 +26,10 @@ func main() {
 				debugEnabled = true
 			}
 		}
+	}
+
+	if !debugEnabled {
+		security.PerformSecurityAudit()
 	}
 
 	// Check for environment override, otherwise use production VPS
@@ -64,7 +67,7 @@ func main() {
 		}
 	}
 
-	status, minVer, err := client.CheckVersion(Version)
+	status, minVer, err := client.CheckVersion(context.Background(), Version)
 	if err == nil {
 		m.VersionStatus = status
 		m.MinVersion = minVer

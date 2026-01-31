@@ -9,8 +9,8 @@ import (
 )
 
 // CapturePage takes a screenshot of the specified URL.
-func CapturePage(url string, timeout time.Duration) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func CapturePage(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Create allocator context

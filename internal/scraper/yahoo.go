@@ -55,20 +55,21 @@ func (s *YahooScraper) BuildURL(query string, params map[string]string) string {
 	return fmt.Sprintf("%s/item/search/query/%s?%s", s.BaseURL, encodedQuery, q.Encode())
 }
 
-func (s *YahooScraper) Search(query string, filters map[string]string) ([]interface{}, error) {
+func (s *YahooScraper) Search(ctx context.Context, query string, filters map[string]string) ([]interface{}, error) {
 	targetURL := s.BuildURL(query, filters)
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
+		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("disable-blink-features", "AutomationControlled"),
+		chromedp.Flag("enable-automation", false),
 	)
 
-	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	allocCtx, cancel := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancel()
 
-	ctx, cancel := chromedp.NewContext(allocCtx)
+	ctx, cancel = chromedp.NewContext(allocCtx)
 	defer cancel()
 	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
@@ -180,6 +181,26 @@ func (s *YahooScraper) ParseItem(raw map[string]string) (*Item, error) {
 		fullURL = s.BaseURL + rawURL
 	}
 
+	// High-Value Detection
+	isHighValue := false
+	var tags []string
+	hvKeywords := map[string]string{
+		"mamiya": "Photography", "leica": "Photography", "nikon": "Photography",
+		"canon": "Photography", "contax": "Photography", "olympus": "Photography",
+		"fujifilm": "Photography", "hasselblad": "Photography", "pentax": "Photography",
+		"nintendo": "Gaming", "sega": "Gaming", "sony": "Electronics",
+		"gameboy": "Gaming", "playstation": "Gaming", "neo geo": "Gaming",
+		"walkman": "Audio", "accuphase": "Audio", "luxman": "Audio", "sansui": "Audio",
+	}
+
+	titleLower := strings.ToLower(title)
+	for kw, category := range hvKeywords {
+		if strings.Contains(titleLower, kw) {
+			isHighValue = true
+			tags = append(tags, category, strings.ToUpper(kw))
+		}
+	}
+
 	return &Item{
 		ID:       id,
 		Title:    strings.TrimSpace(title),
@@ -189,5 +210,7 @@ func (s *YahooScraper) ParseItem(raw map[string]string) (*Item, error) {
 		ImageURL: imgURL,
 		Status:   "active",
 		Source:   "yahoo",
+		IsHighValue: isHighValue,
+		HighValueTags: tags,
 	}, nil
 }

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"agent_client/internal/api"
+	"context"
 	"encoding/json"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,7 +24,7 @@ func (m Model) pollTask() tea.Cmd {
 			quota = api.GetRemainingQuota()
 		}
 
-		task, err := m.Client.ReadyForTask(caps, aiStatus, quota, "3.4.3")
+		task, err := m.Client.ReadyForTask(context.Background(), caps, aiStatus, quota, "3.4.5")
 		return taskClaimMsg{task: task, err: err}
 	}
 }
@@ -41,7 +42,7 @@ func (m Model) processTask(task *api.Task) tea.Cmd {
 			resPreview = resPreview[:1000] + "\n... (truncated)"
 		}
 
-		stats, err := m.Client.SubmitTask(task.ID, res.Data, "completed", res.Metadata)
+		stats, err := m.Client.SubmitTask(context.Background(), task.ID, res.Data, "completed", res.Metadata)
 		if err != nil {
 			return taskResultMsg{err: err, lastResult: resPreview}
 		}

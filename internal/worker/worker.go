@@ -11,7 +11,7 @@ import (
 )
 
 type ScraperInterface interface {
-	Search(query string, params map[string]string) ([]interface{}, error)
+	Search(ctx context.Context, query string, params map[string]string) ([]interface{}, error)
 }
 
 type Worker struct {
@@ -48,7 +48,7 @@ func (w *Worker) ProcessTask(task *api.Task, scr ScraperInterface) (*WorkerResul
 		if query == "" {
 			query, _ = task.Payload["keyword"].(string)
 		}
-		items, serr := scr.Search(query, params)
+		items, serr := scr.Search(context.Background(), query, params)
 		if serr != nil {
 			err = serr
 		} else {
@@ -62,14 +62,14 @@ func (w *Worker) ProcessTask(task *api.Task, scr ScraperInterface) (*WorkerResul
 		}
 
 		// 1. Capture Screenshot
-		screenshot, serr := scraper.CapturePage(url, 30*time.Second)
+		screenshot, serr := scraper.CapturePage(context.Background(), url, 30*time.Second)
 		if serr != nil {
 			err = serr
 		} else {
 			// 2. Load AI Config
 			cfg, _ := api.LoadAIConfig()
 			// 3. Analyze with Gemini
-			gClient, _ := api.NewGeminiClient(cfg.GeminiAPIKey)
+			gClient, _ := api.NewGeminiClient(context.Background(), cfg.GeminiAPIKey)
 			aiModel = "gemini-3-flash-preview"
 			
 			source, _ := task.Payload["source"].(string)
@@ -93,14 +93,14 @@ func (w *Worker) ProcessTask(task *api.Task, scr ScraperInterface) (*WorkerResul
 		}
 
 		// 1. Capture Screenshot
-		screenshot, serr := scraper.CapturePage(url, 30*time.Second)
+		screenshot, serr := scraper.CapturePage(context.Background(), url, 30*time.Second)
 		if serr != nil {
 			err = serr
 		} else {
 			// 2. Load AI Config
 			cfg, _ := api.LoadAIConfig()
 			// 3. Analyze with Gemini
-			gClient, _ := api.NewGeminiClient(cfg.GeminiAPIKey)
+			gClient, _ := api.NewGeminiClient(context.Background(), cfg.GeminiAPIKey)
 			aiModel = "gemini-3-flash-preview"
 			analysis, serr := gClient.AuctionDeepDive(context.Background(), screenshot, description)
 			if serr != nil {
@@ -145,7 +145,7 @@ func (w *Worker) ProcessTask(task *api.Task, scr ScraperInterface) (*WorkerResul
 			// AI REFINEMENT & VISION (If available)
 			cfg, aerr := api.LoadAIConfig()
 			if aerr == nil && cfg.GeminiAPIKey != "" {
-				gClient, _ := api.NewGeminiClient(cfg.GeminiAPIKey)
+				gClient, _ := api.NewGeminiClient(context.Background(), cfg.GeminiAPIKey)
 				
 				// 1. Text Refinement
 				if len(items) > 0 {
@@ -174,7 +174,7 @@ func (w *Worker) ProcessTask(task *api.Task, scr ScraperInterface) (*WorkerResul
 					}
 					
 					if searchURL != "" {
-						screenshot, serr := scraper.CapturePage(searchURL, 30*time.Second)
+						screenshot, serr := scraper.CapturePage(context.Background(), searchURL, 30*time.Second)
 						if serr == nil {
 							visionJSON, verr := gClient.AnalyzeGrid(context.Background(), screenshot, platform)
 							if verr == nil {

@@ -54,9 +54,9 @@ func PerformSecurityAudit() {
 		GlobalState.MarkTainted()
 	}
 	
-	// Add Jitter check (threshold: 500 cycles)
+	// Add Jitter check (threshold: 2000 cycles)
 	jitter := MeasureJitter()
-	if IsHighJitter(jitter, 500) {
+	if IsHighJitter(jitter, 2000) {
 		GlobalState.MarkTainted()
 	}
 }

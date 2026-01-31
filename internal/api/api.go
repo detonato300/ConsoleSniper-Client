@@ -3,6 +3,7 @@ package api
 import (
 	"agent_client/internal/security"
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -59,6 +60,10 @@ func NewClient(baseURL, token, hwid string) *Client {
 	}
 }
 
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 func (c *Client) signRequest(req *http.Request, body []byte) {
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
 	nonce := uuid.New().String()
@@ -80,13 +85,13 @@ func (c *Client) signRequest(req *http.Request, body []byte) {
 
 	req.Header.Set("X-Timestamp", ts)
 	req.Header.Set("X-Nonce", nonce)
-	req.Header.Set("X-License-Sig", c.VolunteerToken) // In our system, Token IS the License Sig
+	req.Header.Set("X-License-Sig", c.VolunteerToken)
 	req.Header.Set("X-HWID", c.HWID)
 	req.Header.Set("X-Header-Signature", hSig)
 	req.Header.Set("X-Signature", bSig)
 }
 
-func (c *Client) ReadyForTask(capabilities []string, aiStatus string, aiQuota int, currentVersion string) (*Task, error) {
+func (c *Client) ReadyForTask(ctx context.Context, capabilities []string, aiStatus string, aiQuota int, currentVersion string) (*Task, error) {
 	if shouldSimulateFailure() {
 		return nil, fmt.Errorf("security trigger: simulated 500 (client tainted)")
 	}
@@ -97,25 +102,28 @@ func (c *Client) ReadyForTask(capabilities []string, aiStatus string, aiQuota in
 		"ai_quota":        aiQuota,
 		"current_version": currentVersion,
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal payload: %w", err)
+	}
 
 	// 1. End-to-End Encryption
 	encBody, err := security.Encrypt(body, c.SessionKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encrypt body: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.BaseURL+"/api/v1/tasks/ready", bytes.NewBuffer(encBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/api/v1/tasks/ready", bytes.NewBuffer(encBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	c.signRequest(req, encBody)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Encrypted", "true")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -126,7 +134,7 @@ func (c *Client) ReadyForTask(capabilities []string, aiStatus string, aiQuota in
 	// 2. Decrypt Response
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read body: %w", err)
 	}
 
 	decBody, err := security.Decrypt(respBody, c.SessionKey)
@@ -136,16 +144,25 @@ func (c *Client) ReadyForTask(capabilities []string, aiStatus string, aiQuota in
 	}
 
 	var result struct {
-		Task *Task `json:"task"`
+		Task   *Task                  `json:"task"`
+		Config map[string]interface{} `json:"config"`
 	}
-	if err := json.NewDecoder(bytes.NewReader(decBody)).Decode(&result); err != nil {
-		return nil, err
+	if err := json.Unmarshal(decBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	// Update local AI configuration if provided by server
+	if result.Config != nil {
+		if geminiKey, ok := result.Config["gemini_api_key"].(string); ok && geminiKey != "" {
+			// Persist synchronized key to local storage
+			_ = SaveAIConfig(geminiKey)
+		}
 	}
 
 	return result.Task, nil
 }
 
-func (c *Client) SubmitTask(taskID int, resultData interface{}, status string, metadata interface{}) (map[string]interface{}, error) {
+func (c *Client) SubmitTask(ctx context.Context, taskID int, resultData interface{}, status string, metadata interface{}) (map[string]interface{}, error) {
 	if shouldSimulateFailure() {
 		return nil, fmt.Errorf("security trigger: simulated 500 (client tainted)")
 	}
@@ -156,25 +173,28 @@ func (c *Client) SubmitTask(taskID int, resultData interface{}, status string, m
 		"status":   status,
 		"metadata": metadata,
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal payload: %w", err)
+	}
 
 	// 1. End-to-End Encryption
 	encBody, err := security.Encrypt(body, c.SessionKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encrypt body: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.BaseURL+"/api/v1/tasks/submit", bytes.NewBuffer(encBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/api/v1/tasks/submit", bytes.NewBuffer(encBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	c.signRequest(req, encBody)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Encrypted", "true")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -185,7 +205,7 @@ func (c *Client) SubmitTask(taskID int, resultData interface{}, status string, m
 	// 2. Decrypt Response
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read body: %w", err)
 	}
 
 	decBody, err := security.Decrypt(respBody, c.SessionKey)
@@ -196,21 +216,23 @@ func (c *Client) SubmitTask(taskID int, resultData interface{}, status string, m
 	var res struct {
 		Gamification map[string]interface{} `json:"gamification"`
 	}
-	json.NewDecoder(bytes.NewReader(decBody)).Decode(&res)
+	if err := json.Unmarshal(decBody, &res); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
 
 	return res.Gamification, nil
 }
 
-func (c *Client) GetStats() (map[string]interface{}, error) {
-	req, err := http.NewRequest("GET", c.BaseURL+"/api/v1/user/stats", nil)
+func (c *Client) GetStats(ctx context.Context) (map[string]interface{}, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+"/api/v1/user/stats", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	c.signRequest(req, nil)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -221,7 +243,7 @@ func (c *Client) GetStats() (map[string]interface{}, error) {
 	// Decrypt Response
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read body: %w", err)
 	}
 
 	decBody, err := security.Decrypt(respBody, c.SessionKey)
@@ -230,22 +252,22 @@ func (c *Client) GetStats() (map[string]interface{}, error) {
 	}
 
 	var result map[string]interface{}
-	if err := json.NewDecoder(bytes.NewReader(decBody)).Decode(&result); err != nil {
-		return nil, err
+	if err := json.Unmarshal(decBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	return result, nil
 }
 
-func (c *Client) CheckVersion(currentVersion string) (string, string, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/version/check?version=%s", c.BaseURL, currentVersion), nil)
+func (c *Client) CheckVersion(ctx context.Context, currentVersion string) (string, string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/api/v1/version/check?version=%s", c.BaseURL, currentVersion), nil)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -254,7 +276,7 @@ func (c *Client) CheckVersion(currentVersion string) (string, string, error) {
 		MinVersion string `json:"min_version"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("decode response: %w", err)
 	}
 
 	return result.Status, result.MinVersion, nil
@@ -268,10 +290,15 @@ type ReleaseInfo struct {
 	} `json:"assets"`
 }
 
-func GetLatestRelease() (*ReleaseInfo, error) {
-	resp, err := http.Get("https://api.github.com/repos/detonato300/ConsoleSniper-Client/releases/latest")
+func GetLatestRelease(ctx context.Context) (*ReleaseInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/detonato300/ConsoleSniper-Client/releases/latest", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -281,34 +308,37 @@ func GetLatestRelease() (*ReleaseInfo, error) {
 
 	var release ReleaseInfo
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return &release, nil
 }
 
-func (c *Client) RedeemPoints(rewardType string) error {
+func (c *Client) RedeemPoints(ctx context.Context, rewardType string) error {
 	payload := map[string]string{
 		"reward_type": rewardType,
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
 
 	// End-to-End Encryption
 	encBody, err := security.Encrypt(body, c.SessionKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("encrypt body: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.BaseURL+"/api/v1/user/redeem", bytes.NewBuffer(encBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/api/v1/user/redeem", bytes.NewBuffer(encBody))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request: %w", err)
 	}
 	c.signRequest(req, encBody)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Encrypted", "true")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 

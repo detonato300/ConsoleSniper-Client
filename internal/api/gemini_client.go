@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	genai "google.golang.org/genai"
 )
@@ -13,13 +14,13 @@ type GeminiClient struct {
 	model  string
 }
 
-func NewGeminiClient(apiKey string) (*GeminiClient, error) {
-	ctx := context.Background()
+func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:      apiKey,
 		HTTPOptions: genai.HTTPOptions{APIVersion: "v1beta"},
 	})
 	if err != nil {
+		slog.Error("Failed to create Gemini client", "error", err)
 		return nil, fmt.Errorf("failed to create gemini client: %v", err)
 	}
 
@@ -30,16 +31,31 @@ func NewGeminiClient(apiKey string) (*GeminiClient, error) {
 }
 
 func (g *GeminiClient) AnalyzeGrid(ctx context.Context, screenshotData []byte, platform string) (string, error) {
+	slog.Info("Analyzing grid", "platform", platform)
 	marketDesc := "Japanese handheld consoles"
 	if platform == "olx" || platform == "allegro" {
 		marketDesc = "Polish local marketplace for electronics"
 	}
 
-	prompt := fmt.Sprintf(`Analyze this search result page for %s.
-1. Assess the overall market sentiment (e.g., prices high/low, many new listings).
-2. Identify items that look like potential deals or are in exceptionally good condition.
+	prompt := fmt.Sprintf(`
+<role>
+You are a Market Trend Analyst for the Empire Trading Network. Your expertise is in the %s market.
+</role>
+
+<task>
+Analyze this search result page screenshot.
+1. Assess the overall market sentiment (e.g., are prices inflated, is there a surge of new listings, or is it a buyer's market?).
+2. Identify specific items that look like potential "Hidden Gems" or are in exceptionally good condition for their price.
 3. Output a list of item IDs or URLs that deserve a "Deep-Dive" analysis.
-Respond in JSON format: {"sentiment": "...", "candidates": [{"id": "...", "reason": "..."}]}`, marketDesc)
+</task>
+
+<output_format>
+Respond in JSON format: 
+{
+  "sentiment": "Concise market summary",
+  "candidates": [{"id": "...", "reason": "..."}]
+}
+</output_format>`, marketDesc)
 
 	contents := []*genai.Content{
 		{
@@ -69,16 +85,32 @@ Respond in JSON format: {"sentiment": "...", "candidates": [{"id": "...", "reaso
 }
 
 func (g *GeminiClient) AuctionDeepDive(ctx context.Context, screenshotData []byte, description string) (string, error) {
-	prompt := fmt.Sprintf(`Perform a deep-dive analysis of this Yahoo Japan Auction listing.
+	slog.Info("Performing auction deep-dive")
+	prompt := fmt.Sprintf(`
+<role>
+You are an Elite Hardware Auditor. Your mission is to perform a surgical deep-dive analysis of this Yahoo Japan Auction listing.
+</role>
+
+<context>
 Description: %s
+</context>
 
-Tasks:
-1. Identify any hidden defects mentioned in the text (e.g., screen yellowing, scratches, non-original parts).
-2. Evaluate the visual condition from the images.
-3. Assign a grade (S, A, B, C) or "Working JUNK".
-4. Recommend if it's worth bidding and up to what price (in JPY).
+<task>
+1. **Defect Detection:** Scan the text and images for hidden flaws (e.g., screen yellowing, hinge stress marks, non-original parts, "sticking" buttons).
+2. **Visual Inspection:** Evaluate the exterior condition (scratches, dents) and the display quality.
+3. **Classification:** Assign a grade (S: Mint, A: Good, B: Used, C: Heavy Wear) or "Working JUNK".
+4. **Strategic Recommendation:** Determine if it's a profitable "BUY" and set a maximum bidding limit in JPY.
+</task>
 
-Respond in JSON format: {"grade": "...", "risk_score": 0-10, "recommendation": "...", "bid_limit_jpy": 0}`, description)
+<output_format>
+Respond in JSON format: 
+{
+  "grade": "S/A/B/C/JUNK", 
+  "risk_score": 0-10, 
+  "recommendation": "Detailed expert opinion", 
+  "bid_limit_jpy": 0
+}
+</output_format>`, description)
 
 	contents := []*genai.Content{
 		{
@@ -122,15 +154,34 @@ func (g *GeminiClient) extractText(resp *genai.GenerateContentResponse) string {
 }
 
 func (g *GeminiClient) RefineTrendResults(ctx context.Context, query string, items []interface{}) (string, error) {
+	slog.Info("Refining trend results", "query", query, "count", len(items))
 	itemsJSON, _ := json.Marshal(items)
-	prompt := fmt.Sprintf(`Review this list of products found for the query: "%s".
-Filter this list to include ONLY items that exactly match the model requested. 
-Example: If query is "New 3DS XL", remove "2DS", "Original 3DS", or "New 3DS (Small)".
-Keep items that are bundles if the main console is correct.
+	prompt := fmt.Sprintf(`
+<role>
+You are a Precision Data Filter. Your goal is to clean market trend data.
+</role>
 
+<task>
+Review this list of products found for the query: "%s".
+Filter this list to include ONLY items that are an EXACT match for the console model requested. 
+
+Rules:
+1. Remove unrelated models (e.g., if query is "New 3DS XL", remove "2DS", "Old 3DS", or "New 3DS Small").
+2. Remove accessory-only listings (e.g., chargers, cases, boxes, parts) unless the console is included.
+3. Keep bundles if the main console is the correct model.
+4. Normalize titles for clarity.
+</task>
+
+<context>
 Items: %s
+</context>
 
-Respond in JSON format: {"refined_items": [{"title": "...", "price": 0, "url": "..."}]}`, query, string(itemsJSON))
+<output_format>
+Respond in JSON format: 
+{
+  "refined_items": [{"title": "...", "price": 0, "url": "..."}]
+}
+</output_format>`, query, string(itemsJSON))
 
 	contents := []*genai.Content{
 		{

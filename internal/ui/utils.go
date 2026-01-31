@@ -2,6 +2,7 @@ package ui
 
 import (
 	"agent_client/internal/api"
+	"context"
 	"fmt"
 	"runtime"
 	"time"
@@ -22,19 +23,19 @@ func (m *Model) logDebug(format string, a ...interface{}) {
 
 func (m Model) fetchUserStats() tea.Cmd {
 	return func() tea.Msg {
-		stats, err := m.Client.GetStats()
+		stats, err := m.Client.GetStats(context.Background())
 		return userStatsMsg{stats: stats, err: err}
 	}
 }
 
 func (m Model) checkUpdate() tea.Cmd {
 	return func() tea.Msg {
-		release, err := api.GetLatestRelease()
+		release, err := api.GetLatestRelease(context.Background())
 		if err != nil {
 			return updateCheckMsg{err: err}
 		}
 
-		current := "v3.4.3"
+		current := "v3.4.5"
 		if release.TagName != current {
 			target := "consolesniper_linux_amd64"
 			if runtime.GOOS == "windows" {
@@ -81,7 +82,7 @@ func tick() tea.Cmd {
 
 func (m Model) redeemPoints(rewardType string) tea.Cmd {
 	return func() tea.Msg {
-		err := m.Client.RedeemPoints(rewardType)
+		err := m.Client.RedeemPoints(context.Background(), rewardType)
 		if err != nil {
 			return taskResultMsg{err: err}
 		}
