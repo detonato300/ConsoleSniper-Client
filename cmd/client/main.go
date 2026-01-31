@@ -13,7 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const Version = "v3.4.5"
+const Version = "v3.4.6"
 const DevSecret = "DEVSNIPER2026"
 
 func main() {

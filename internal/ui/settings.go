@@ -7,8 +7,8 @@ import (
 func (m Model) RenderSettings() string {
 	return boxStyle.Render(
 		titleStyle.Render("-- SETTINGS --") + "\n" +
-			"App Version: v3.4.3\n" +
-			"Engine:      C2-Orchestrator v3.4.3\n\n" +
+			"App Version: v3.4.6\n" +
+			"Engine:      C2-Orchestrator v3.4.6\n\n" +
 			lipgloss.NewStyle().Foreground(primaryColor).Render("[Press 'Enter'] to configure Gemini API Key"),
 	)
 }

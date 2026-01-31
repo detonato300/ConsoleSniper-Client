@@ -35,7 +35,7 @@ func (m Model) checkUpdate() tea.Cmd {
 			return updateCheckMsg{err: err}
 		}
 
-		current := "v3.4.5"
+		current := "v3.4.6"
 		if release.TagName != current {
 			target := "consolesniper_linux_amd64"
 			if runtime.GOOS == "windows" {

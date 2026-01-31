@@ -67,7 +67,7 @@ func (m Model) HeaderView() string {
 	title := headerStyle.Render(" CONSOLE SNIPER ")
 	nodeStatus := lipgloss.NewStyle().Foreground(aiColor).Render(" ● " + aiStatus)
 	
-	version := lipgloss.NewStyle().Foreground(dimColor).Render("v3.4.3")
+	version := lipgloss.NewStyle().Foreground(dimColor).Render("v3.4.6")
 	
 	debugTag := ""
 	if m.DebugEnabled {

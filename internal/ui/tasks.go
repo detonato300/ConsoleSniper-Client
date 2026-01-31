@@ -24,7 +24,7 @@ func (m Model) pollTask() tea.Cmd {
 			quota = api.GetRemainingQuota()
 		}
 
-		task, err := m.Client.ReadyForTask(context.Background(), caps, aiStatus, quota, "3.4.5")
+		task, err := m.Client.ReadyForTask(context.Background(), caps, aiStatus, quota, "3.4.6")
 		return taskClaimMsg{task: task, err: err}
 	}
 }
