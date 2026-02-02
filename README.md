@@ -27,7 +27,7 @@ Go to the [Releases](https://github.com/detonato300/ConsoleSniper-Client/release
 - `consolesniper_mac_x64` (macOS)
 
 ### 2. Get Your License
-To accumulate points, you need a valid **Console Sniper License Key**. You can get one via the **Empire Hub (Web Dashboard)** or our **Discord Server**.
+To accumulate points, you need a valid **Console Sniper License Key**. You can get one via the [Empire Hub (Web Dashboard)](https://consolesniper.aethernatolith.run.place) or our [Discord Server](https://discord.gg/P3wrfqBDSn).
 
 ### 3. Run the Client
 Simply double-click the executable or run it from your terminal:
@@ -59,4 +59,4 @@ Once launched, the client will cryptographically bind to your hardware (HWID) to
 We value your privacy. The **Console Sniper Client** only uses your bandwidth for market discovery tasks. All search results are **encrypted locally** before being sent to the central orchestrator. We never access your personal files or browsing history.
 
 ---
-*Built for the Empire. Join our Discord for support and community bounties.*
+*Built for the Empire. Join our [Discord](https://discord.gg/P3wrfqBDSn) for support and community bounties.*
