@@ -49,9 +49,21 @@ chmod +x consolesniper_linux_x64
 
 Once launched, the client will cryptographically bind to your hardware (HWID) to secure your earnings.
 
-- **Numeric Keys (1-4):** Switch between Dashboard, Missions, Logs, and Settings.
-- **F1 / H:** Open the help menu.
-- **Ctrl+C:** Safe exit (ensures all pending rewards are synced).
+### 🧭 Navigation
+- **Numeric Keys (1-4):**
+  - `1`: **License** (Activation & Status)
+  - `2`: **Dashboard** (Network stats & Rewards)
+  - `3`: **Search** (Local marketplace discovery)
+  - `4`: **Settings** (AI Configuration)
+- **Arrow Keys / HJKL:** Navigate menus and tabs.
+- **Enter / Space:** Select or interact with the current view.
+- **Q / Ctrl+C:** Safe exit (ensures all pending rewards are synced).
+
+### ⚡ Hotkeys
+- **V (Dashboard):** Toggle **Volunteer Mode** ON/OFF.
+- **R (Dashboard):** Redeem 500 points for **24h Premium**.
+- **S (Search):** Start local search (requires Premium/Pro license).
+- **Esc:** Cancel current input or close overlay.
 
 ---
 
