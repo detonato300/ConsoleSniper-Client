@@ -1,4 +1,4 @@
-# 🦅 MIE Node: Console Sniper Client v3.6.1
+# 🦅 MIE Node: Console Sniper Client v3.6.2
 
 [![Status](https://img.shields.io/badge/Status-Live-brightgreen.svg)]()
 [![Platform](https://img.shields.io/badge/Platform-Windows_|_Linux-blue.svg)]()
@@ -8,7 +8,7 @@
 
 ---
 
-## ✨ Kluczowe Funkcje v3.6.1
+## ✨ Kluczowe Funkcje v3.6.2
 
 - **🚀 Rozproszony Scraping:** Wykorzystaj swoje domowe IP, aby pomóc społeczności omijać blokady regionalne Mercari i Yahoo Japan.
 - **🚢 Kalkulator Logistyczny:** Nowość! Twój węzeł wspiera teraz zdalne obliczanie kosztów wysyłki, cła i VAT w czasie rzeczywistym.
